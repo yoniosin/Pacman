@@ -3,42 +3,6 @@ from game import Agent
 import numpy as np
 from pacman import SCARED_TIME
 
-class OriginalReflexAgent(Agent):
-    """
-    A reflex agent chooses an action at each choice point by examining
-    its alternatives via a state evaluation function.
-  """
-
-    def __init__(self):
-        self.lastPositions = []
-        self.dc = None
-
-    def getAction(self, gameState):
-
-        """
-           getAction chooses among the best options according to the evaluation function.
-
-           getAction takes a GameState and returns some Directions.X for some X in the set {North, South, West, East, Stop}
-           ------------------------------------------------------------------------------
-           """
-        # Collect legal moves and successor states
-        legalMoves = gameState.getLegalActions()
-
-        # Choose one of the best actions
-        scores = [self.evaluationFunction(gameState, action) for action in legalMoves]
-        bestScore = max(scores)
-        bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
-        chosenIndex = random.choice(bestIndices)  # Pick randomly among the best
-        return legalMoves[chosenIndex]
-
-    def evaluationFunction(self, currentGameState, action):
-        """
-    The evaluation function takes in the current GameState (pacman.py) and the proposed action
-    and returns a number, where higher numbers are better.
-    """
-        successorGameState = currentGameState.generatePacmanSuccessor(action)
-        return scoreEvaluationFunction(successorGameState)
-
 #     ********* Reflex agent- sections a and b *********
 class ReflexAgent(Agent):
     """
@@ -462,13 +426,42 @@ class CompetitionAgent(MultiAgentSearchAgent):
     """
     Your competition agent
   """
+    def __init__(self):
+        super().__init__()
+        self.depth = 2
 
     def getAction(self, gameState):
         """
-      Returns the action using self.depth and self.evaluationFunction
-
+      Returns the expectimax action using self.depth and self.evaluationFunction
+      All ghosts should be modeled as choosing uniformly at random from their legal moves.
     """
 
-        # BEGIN_YOUR_CODE
-        raise Exception("Not implemented yet")
-        # END_YOUR_CODE
+        legal_actions = gameState.getLegalActions(self.index)
+        next_state_list = [gameState.generateSuccessor(self.index, a) for a in gameState.getLegalActions(self.index)]
+        next_action_score = [self.RBrandomExpectimax(next_state, self.index, self.depth) for next_state in
+                             next_state_list]
+
+        best_score = max(next_action_score)
+        best_action = [a for i, a in enumerate(legal_actions) if next_action_score[i] == best_score]
+        return np.random.choice(best_action)
+
+    def RBrandomExpectimax(self, state, agent_idx, d):
+        agent_idx = switch(state, agent_idx)
+        legal_actions = state.getLegalActions(agent_idx)
+        if state.isLose() or state.isWin() or len(legal_actions) == 0:
+            return state.getScore()
+
+        if d == 0:
+            return self.evaluationFunction(state)
+
+        if agent_idx == self.index:  # agent pacman
+            scores = (self.RBrandomExpectimax(state.generateSuccessor(agent_idx, a), agent_idx, d - 1) for a in
+                      legal_actions)
+            return max(scores)
+
+
+        else:
+            scores = np.array([self.RBrandomExpectimax(state.generateSuccessor(agent_idx, a), agent_idx, d)
+                               for a in legal_actions])
+            action_prob = np.array([1 / len(legal_actions)] * len(legal_actions))
+            return scores @ action_prob
